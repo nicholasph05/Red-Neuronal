@@ -1,140 +1,225 @@
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import tensorflow as tf
-import math
-import time
-import os
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Red Neuronal - Goles Totales</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f3f4f6;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
 
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_squared_error
+    .card {
+      background-color: white;
+      width: 380px;
+      padding: 30px;
+      border-radius: 20px;
+      box-shadow: 0 15px 40px rgba(0,0,0,0.1);
+      text-align: center;
+    }
 
-import kagglehub
+    .card h2 {
+      margin-top: 0;
+      margin-bottom: 10px;
+      font-size: 22px;
+      font-weight: bold;
+    }
 
-# ==========================
-# 1. Descargar y cargar dataset
-# ==========================
+    .card p {
+      margin: 0 0 10px 0;
+      font-size: 14px;
+      color: #6b7280;
+    }
 
-path = kagglehub.dataset_download(
-    "brunokonzen/football-results-national-teams-18722025"
-)
-print("Path del dataset:", path)
+    select, input {
+      width: 100%;
+      padding: 12px;
+      margin-top: 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 10px;
+      font-size: 16px;
+      background-color: #f9fafb;
+      outline: none;
+    }
 
-print("\nArchivos dentro de la carpeta del dataset:")
-files = os.listdir(path)
-print(files)
+    select:focus, input:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.3);
+      background-color: #ffffff;
+    }
 
-csv_files = [f for f in files if f.lower().endswith(".csv")]
-print("\nArchivos CSV encontrados:", csv_files)
+    button {
+      margin-top: 20px;
+      padding: 12px;
+      width: 100%;
+      background-color: #10b981;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      cursor: pointer;
+    }
 
-if "results.csv" in csv_files:
-    csv_path = os.path.join(path, "results.csv")
-elif csv_files:
-    csv_path = os.path.join(path, csv_files[0])
-    print(f"\n⚠ No se encontró 'results.csv'. Usando: {csv_files[0]}")
-else:
-    raise FileNotFoundError(f"No se encontró ningún .csv en {path}")
+    button:hover {
+      background-color: #059669;
+    }
 
-print("\nLeyendo CSV desde:", csv_path)
-df = pd.read_csv(csv_path)
+    .resultado {
+      margin-top: 20px;
+      padding: 12px;
+      background: #f1f5f9;
+      border-radius: 10px;
+      font-size: 16px;
+    }
 
-print("\nColumnas:")
-print(df.columns)
+    .nota {
+      margin-top: 10px;
+      font-size: 12px;
+      color: #9ca3af;
+      text-align: left;
+    }
+  </style>
+</head>
+<body>
 
-# ==========================
-# 2. Variable objetivo: goles totales
-# ==========================
+<div class="card">
+  <h2>Red Neuronal - Goles Totales</h2>
+  <p>Predicción del número total de goles en un partido.</p>
 
-df["total_goals"] = df["home_score"] + df["away_score"]
+  <input type="number" id="year" placeholder="Año del partido (ej: 2022)">
 
-# ==========================
-# 3. Features sencillas
-# ==========================
+  <select id="neutral">
+    <option value="">Campo neutral</option>
+    <option value="0">No (hay local)</option>
+    <option value="1">Sí (neutral)</option>
+  </select>
 
-df["date"] = pd.to_datetime(df["date"])
-df["year"] = df["date"].dt.year
+  <select id="worldcup">
+    <option value="">¿Es partido de Mundial?</option>
+    <option value="0">No</option>
+    <option value="1">Sí</option>
+  </select>
 
-df["neutral"] = df["neutral"].astype(int)
-df["is_world_cup"] = (df["tournament"] == "FIFA World Cup").astype(int)
-df["is_friendly"] = (df["tournament"] == "Friendly").astype(int)
+  <select id="friendly">
+    <option value="">¿Es amistoso?</option>
+    <option value="0">No</option>
+    <option value="1">Sí</option>
+  </select>
 
-df_model = df[["year", "neutral", "is_world_cup", "is_friendly", "total_goals"]].dropna()
+  <button onclick="predecir()">Calcular goles</button>
 
-X = df_model[["year", "neutral", "is_world_cup", "is_friendly"]].values.astype(float)
-y = df_model["total_goals"].values.astype(float)
+  <div id="resultado" class="resultado">
+    Ingrese los datos y presione "Calcular goles".
+  </div>
 
-print("\nShape X:", X.shape, " | Shape y:", y.shape)
+  <div class="nota">
+    Esta red neuronal fue entrenada con resultados históricos de selecciones.
+    La salida es el número esperado de goles totales (local + visitante) en
+    función del año, campo neutral y tipo de torneo (Mundial/amistoso).
+  </div>
+</div>
 
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.3, random_state=0
-)
+<script>
+  // ==============================
+  // 1. Pesos reales de tu red neuronal (pegados desde Python)
+  // ==============================
 
-# ==========================
-# 4. Definir red neuronal (estilo profe)
-# ==========================
+  const W1 = [[-0.09961777925491333, -0.6719123125076294, 0.011306239292025566, 0.04091861471533775, -0.09570485353469849, 0.10845279693603516, -0.4114420711994171, -0.06465107202529907],
+              [-0.7068230509757996, 0.48916441202163696, 1.3816157579421997, -1.5225062370300293, 0.3090936541557312, 0.5281358957290649, 0.4825107455253601, -0.479320764541626],
+              [-0.26565831899642944, -0.6234753131866455, -1.703380823135376, 0.8647361993789673, -0.0032390952110290527, -0.1475744992494583, -0.1341579556465149, -0.22204425930976868],
+              [-0.5279432535171509, 0.500001847743988, -2.490020513534546, 1.3674901723861694, 0.5468749403953552, -1.0120911598205566, 0.52055424451828, 0.6430142521858215]];
+  const b1 = [0.0, 0.0, -0.16958580911159515, -0.3847667872905731, 0.0, -0.2699781358242035, 0.0, 0.0];
 
-capa_in = tf.keras.layers.Dense(units=8, activation="relu", input_shape=[4])
-capa_oculta = tf.keras.layers.Dense(units=8, activation="relu")
-capa_salida = tf.keras.layers.Dense(units=1)  # goles totales
+  const W2 = [[0.41866379976272583, -0.11718505620956421, 0.10217159986495972, 0.3174087405204773, 0.39246684312820435, -0.2855222821235657, -0.5206776857376099, -0.5404040813446045],
+              [-0.5942718386650085, -0.3346841633319855, 0.3110140562057495, -0.2503379285335541, 0.15785157680511475, -0.2995462417602539, 0.3788522481918335, -0.3778024911880493],
+              [0.5663856863975525, -0.3713253140449524, 0.19032323360443115, -0.7959136962890625, 0.08952625840902328, -0.018171310424804688, -0.48236149549484253, -0.37773093581199646],
+              [-0.4773111939430237, 0.32359129190444946, -0.4789261221885681, -0.5094771385192871, -0.0267892237752676, -0.27999410033226013, 0.22689950466156006, -0.039779722690582275],
+              [-0.3886231780052185, 0.10776537656784058, 0.06404125690460205, -0.027450382709503174, 0.40073806047439575, -0.5370028018951416, 0.24334478378295898, -0.41245055198669434],
+              [-0.3639031648635864, -0.4467943608760834, -0.46776139736175537, -0.1093047559261322, -3.146866674796911e-06, -0.213032066822052, -0.13892385363578796, -0.10450297594070435],
+              [0.012624382972717285, 0.2014499306678772, -0.1759304404258728, -0.5449800491333008, 0.4945235848426819, 0.6093892455101013, -0.5453640222549438, -0.35205331444740295],
+              [-0.5019710659980774, 0.41988569498062134, 0.3014768362045288, -0.37081852555274963, 0.15024656057357788, 0.1930261254310608, 0.4243714213371277, -0.07606709003448486]];
+  const b2 = [0.0, 0.0, 0.0, -0.31741055846214294, -0.08228845149278641, 0.0, 0.0, 0.0];
 
-modelo = tf.keras.Sequential([capa_in, capa_oculta, capa_salida])
+  const W3 = [[-0.7842451930046082],
+              [-0.36538806557655334],
+              [-0.0392339825630188],
+              [0.9717938899993896],
+              [0.0010807935614138842],
+              [0.7813495397567749],
+              [0.329006552696228],
+              [-0.7708941102027893]];
+  const b3 = [2.8624038696289062];
 
-modelo.compile(
-    optimizer=tf.keras.optimizers.Adam(0.01),
-    loss="mean_squared_error",
-    metrics=["mse"]   # métrica tipo profe
-)
+  // ==============================
+  // 2. Funciones auxiliares
+  // ==============================
 
-print("\nTraining ...")
-start_time = time.time()
-historial = modelo.fit(X_train, y_train, epochs=50, verbose=False)
-end_time = time.time()
-print("Finalizado en", (end_time - start_time), "segundos")
+  function relu(x) {
+    return Math.max(0, x);
+  }
 
-# ==========================
-# 5. Evaluación
-# ==========================
+  function denseLayer(input, weights, bias, useRelu) {
+    const n_out = bias.length;
+    const output = new Array(n_out).fill(0);
 
-y_pred_test = modelo.predict(X_test)
-mse_test = mean_squared_error(y_test, y_pred_test)
-print("\nMSE en test:", mse_test)
+    for (let j = 0; j < n_out; j++) {
+      let sum = bias[j];
+      for (let i = 0; i < input.length; i++) {
+        sum += input[i] * weights[i][j];
+      }
+      output[j] = useRelu ? relu(sum) : sum;
+    }
+    return output;
+  }
 
-# ==========================
-# 6. Ver pesos (como en el ejemplo)
-# ==========================
+  // ==============================
+  // 3. Forward pass
+  // ==============================
 
-print("\n=== Pesos de las capas (para JavaScript) ===")
+  function redNeuronal(year, neutral, is_world_cup, is_friendly) {
+    const x = [year, neutral, is_world_cup, is_friendly];
 
-W1, b1 = modelo.layers[0].get_weights()  # shape (4, 8) y (8,)
-W2, b2 = modelo.layers[1].get_weights()  # shape (8, 8) y (8,)
-W3, b3 = modelo.layers[2].get_weights()  # shape (8, 1) y (1,)
+    const h1 = denseLayer(x, W1, b1, true);     // capa 1 (ReLU)
+    const h2 = denseLayer(h1, W2, b2, true);    // capa 2 (ReLU)
+    const out = denseLayer(h2, W3, b3, false);  // salida (lineal)
 
-def to_js_array(name, arr):
-    # Imprime algo tipo: const name = [[...], [...], ...];
-    print(f"const {name} = {arr.tolist()};")
+    return out[0]; // número de goles
+  }
 
-to_js_array("W1", W1)
-to_js_array("b1", b1)
-to_js_array("W2", W2)
-to_js_array("b2", b2)
-to_js_array("W3", W3)
-to_js_array("b3", b3)
+  // ==============================
+  // 4. Interacción con la página
+  // ==============================
 
-# ==========================
-# 7. Gráfica del error (como el profe)
-# ==========================
+  function predecir() {
+    const year     = parseFloat(document.getElementById("year").value);
+    const neutral  = parseFloat(document.getElementById("neutral").value);
+    const worldcup = parseFloat(document.getElementById("worldcup").value);
+    const friendly = parseFloat(document.getElementById("friendly").value);
 
-plt.xlabel("Iteración (epoch)")
-plt.ylabel("Error (loss MSE)")
-plt.plot(historial.history["loss"])
-plt.title("Evolución del error")
-plt.show()
+    if (
+      Number.isNaN(year) ||
+      Number.isNaN(neutral) ||
+      Number.isNaN(worldcup) ||
+      Number.isNaN(friendly)
+    ) {
+      document.getElementById("resultado").innerHTML =
+        "⚠️ Complete todos los campos antes de calcular.";
+      return;
+    }
 
-# ==========================
-# 8. Predicción de ejemplo
-# ==========================
+    const goles = redNeuronal(year, neutral, worldcup, friendly);
+    const golesRedondeados = Math.max(0, goles).toFixed(2);
 
-ejemplo = np.array([[2022, 0, 1, 0]], dtype=float)
-pred_ejemplo = modelo.predict(ejemplo)
-print("\nEjemplo: año=2022, neutral=0, mundial=1, amistoso=0")
-print("Goles totales predichos:", float(pred_ejemplo[0][0]))
+    document.getElementById("resultado").innerHTML =
+      `<b>Goles totales esperados:</b> ${golesRedondeados}`;
+  }
+</script>
+
+</body>
+</html>
