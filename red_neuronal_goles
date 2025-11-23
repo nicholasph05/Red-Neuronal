@@ -1,0 +1,140 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import tensorflow as tf
+import math
+import time
+import os
+
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error
+
+import kagglehub
+
+# ==========================
+# 1. Descargar y cargar dataset
+# ==========================
+
+path = kagglehub.dataset_download(
+    "brunokonzen/football-results-national-teams-18722025"
+)
+print("Path del dataset:", path)
+
+print("\nArchivos dentro de la carpeta del dataset:")
+files = os.listdir(path)
+print(files)
+
+csv_files = [f for f in files if f.lower().endswith(".csv")]
+print("\nArchivos CSV encontrados:", csv_files)
+
+if "results.csv" in csv_files:
+    csv_path = os.path.join(path, "results.csv")
+elif csv_files:
+    csv_path = os.path.join(path, csv_files[0])
+    print(f"\n⚠ No se encontró 'results.csv'. Usando: {csv_files[0]}")
+else:
+    raise FileNotFoundError(f"No se encontró ningún .csv en {path}")
+
+print("\nLeyendo CSV desde:", csv_path)
+df = pd.read_csv(csv_path)
+
+print("\nColumnas:")
+print(df.columns)
+
+# ==========================
+# 2. Variable objetivo: goles totales
+# ==========================
+
+df["total_goals"] = df["home_score"] + df["away_score"]
+
+# ==========================
+# 3. Features sencillas
+# ==========================
+
+df["date"] = pd.to_datetime(df["date"])
+df["year"] = df["date"].dt.year
+
+df["neutral"] = df["neutral"].astype(int)
+df["is_world_cup"] = (df["tournament"] == "FIFA World Cup").astype(int)
+df["is_friendly"] = (df["tournament"] == "Friendly").astype(int)
+
+df_model = df[["year", "neutral", "is_world_cup", "is_friendly", "total_goals"]].dropna()
+
+X = df_model[["year", "neutral", "is_world_cup", "is_friendly"]].values.astype(float)
+y = df_model["total_goals"].values.astype(float)
+
+print("\nShape X:", X.shape, " | Shape y:", y.shape)
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.3, random_state=0
+)
+
+# ==========================
+# 4. Definir red neuronal (estilo profe)
+# ==========================
+
+capa_in = tf.keras.layers.Dense(units=8, activation="relu", input_shape=[4])
+capa_oculta = tf.keras.layers.Dense(units=8, activation="relu")
+capa_salida = tf.keras.layers.Dense(units=1)  # goles totales
+
+modelo = tf.keras.Sequential([capa_in, capa_oculta, capa_salida])
+
+modelo.compile(
+    optimizer=tf.keras.optimizers.Adam(0.01),
+    loss="mean_squared_error",
+    metrics=["mse"]   # métrica tipo profe
+)
+
+print("\nTraining ...")
+start_time = time.time()
+historial = modelo.fit(X_train, y_train, epochs=50, verbose=False)
+end_time = time.time()
+print("Finalizado en", (end_time - start_time), "segundos")
+
+# ==========================
+# 5. Evaluación
+# ==========================
+
+y_pred_test = modelo.predict(X_test)
+mse_test = mean_squared_error(y_test, y_pred_test)
+print("\nMSE en test:", mse_test)
+
+# ==========================
+# 6. Ver pesos (como en el ejemplo)
+# ==========================
+
+print("\n=== Pesos de las capas (para JavaScript) ===")
+
+W1, b1 = modelo.layers[0].get_weights()  # shape (4, 8) y (8,)
+W2, b2 = modelo.layers[1].get_weights()  # shape (8, 8) y (8,)
+W3, b3 = modelo.layers[2].get_weights()  # shape (8, 1) y (1,)
+
+def to_js_array(name, arr):
+    # Imprime algo tipo: const name = [[...], [...], ...];
+    print(f"const {name} = {arr.tolist()};")
+
+to_js_array("W1", W1)
+to_js_array("b1", b1)
+to_js_array("W2", W2)
+to_js_array("b2", b2)
+to_js_array("W3", W3)
+to_js_array("b3", b3)
+
+# ==========================
+# 7. Gráfica del error (como el profe)
+# ==========================
+
+plt.xlabel("Iteración (epoch)")
+plt.ylabel("Error (loss MSE)")
+plt.plot(historial.history["loss"])
+plt.title("Evolución del error")
+plt.show()
+
+# ==========================
+# 8. Predicción de ejemplo
+# ==========================
+
+ejemplo = np.array([[2022, 0, 1, 0]], dtype=float)
+pred_ejemplo = modelo.predict(ejemplo)
+print("\nEjemplo: año=2022, neutral=0, mundial=1, amistoso=0")
+print("Goles totales predichos:", float(pred_ejemplo[0][0]))
