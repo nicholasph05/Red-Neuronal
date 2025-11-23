@@ -14,7 +14,6 @@
       height: 100vh;
       margin: 0;
     }
-
     .card {
       background-color: white;
       width: 380px;
@@ -23,20 +22,17 @@
       box-shadow: 0 15px 40px rgba(0,0,0,0.1);
       text-align: center;
     }
-
     .card h2 {
       margin-top: 0;
       margin-bottom: 10px;
       font-size: 22px;
       font-weight: bold;
     }
-
     .card p {
       margin: 0 0 10px 0;
       font-size: 14px;
       color: #6b7280;
     }
-
     select, input {
       width: 100%;
       padding: 12px;
@@ -47,13 +43,11 @@
       background-color: #f9fafb;
       outline: none;
     }
-
     select:focus, input:focus {
       border-color: #2563eb;
-      box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.3);
+      box-shadow: 0 0 0 1px rgba(37,99,235,0.3);
       background-color: #ffffff;
     }
-
     button {
       margin-top: 20px;
       padding: 12px;
@@ -65,11 +59,7 @@
       font-size: 16px;
       cursor: pointer;
     }
-
-    button:hover {
-      background-color: #059669;
-    }
-
+    button:hover { background-color: #059669; }
     .resultado {
       margin-top: 20px;
       padding: 12px;
@@ -77,7 +67,6 @@
       border-radius: 10px;
       font-size: 16px;
     }
-
     .nota {
       margin-top: 10px;
       font-size: 12px;
@@ -90,7 +79,7 @@
 
 <div class="card">
   <h2>Red Neuronal - Goles Totales</h2>
-  <p>Predicción del número total de goles en un partido.</p>
+  <p>Modelo de una sola capa Dense entrenado con resultados reales.</p>
 
   <input type="number" id="year" placeholder="Año del partido (ej: 2022)">
 
@@ -119,82 +108,34 @@
   </div>
 
   <div class="nota">
-    Esta red neuronal fue entrenada con resultados históricos de selecciones.
-    La salida es el número esperado de goles totales (local + visitante) en
-    función del año, campo neutral y tipo de torneo (Mundial/amistoso).
+    La red neuronal recibe 4 entradas (año, campo neutral, mundial, amistoso)
+    y predice el número esperado de goles totales (local + visitante). Es una
+    red de una sola capa Dense, similar al ejemplo de Celsius a Fahrenheit.
   </div>
 </div>
 
 <script>
-  // ==============================
-  // 1. Pesos reales de tu red neuronal (pegados desde Python)
-  // ==============================
+  // Pesos aprendidos en Python:
+  // const W = [-0.0020258822478353977, 0.029492627829313278,
+  //            -0.06968951970338821, -0.04232977703213692];
+  // const B = 6.623144626617432;
 
-  const W1 = [[-0.09961777925491333, -0.6719123125076294, 0.011306239292025566, 0.04091861471533775, -0.09570485353469849, 0.10845279693603516, -0.4114420711994171, -0.06465107202529907],
-              [-0.7068230509757996, 0.48916441202163696, 1.3816157579421997, -1.5225062370300293, 0.3090936541557312, 0.5281358957290649, 0.4825107455253601, -0.479320764541626],
-              [-0.26565831899642944, -0.6234753131866455, -1.703380823135376, 0.8647361993789673, -0.0032390952110290527, -0.1475744992494583, -0.1341579556465149, -0.22204425930976868],
-              [-0.5279432535171509, 0.500001847743988, -2.490020513534546, 1.3674901723861694, 0.5468749403953552, -1.0120911598205566, 0.52055424451828, 0.6430142521858215]];
-  const b1 = [0.0, 0.0, -0.16958580911159515, -0.3847667872905731, 0.0, -0.2699781358242035, 0.0, 0.0];
-
-  const W2 = [[0.41866379976272583, -0.11718505620956421, 0.10217159986495972, 0.3174087405204773, 0.39246684312820435, -0.2855222821235657, -0.5206776857376099, -0.5404040813446045],
-              [-0.5942718386650085, -0.3346841633319855, 0.3110140562057495, -0.2503379285335541, 0.15785157680511475, -0.2995462417602539, 0.3788522481918335, -0.3778024911880493],
-              [0.5663856863975525, -0.3713253140449524, 0.19032323360443115, -0.7959136962890625, 0.08952625840902328, -0.018171310424804688, -0.48236149549484253, -0.37773093581199646],
-              [-0.4773111939430237, 0.32359129190444946, -0.4789261221885681, -0.5094771385192871, -0.0267892237752676, -0.27999410033226013, 0.22689950466156006, -0.039779722690582275],
-              [-0.3886231780052185, 0.10776537656784058, 0.06404125690460205, -0.027450382709503174, 0.40073806047439575, -0.5370028018951416, 0.24334478378295898, -0.41245055198669434],
-              [-0.3639031648635864, -0.4467943608760834, -0.46776139736175537, -0.1093047559261322, -3.146866674796911e-06, -0.213032066822052, -0.13892385363578796, -0.10450297594070435],
-              [0.012624382972717285, 0.2014499306678772, -0.1759304404258728, -0.5449800491333008, 0.4945235848426819, 0.6093892455101013, -0.5453640222549438, -0.35205331444740295],
-              [-0.5019710659980774, 0.41988569498062134, 0.3014768362045288, -0.37081852555274963, 0.15024656057357788, 0.1930261254310608, 0.4243714213371277, -0.07606709003448486]];
-  const b2 = [0.0, 0.0, 0.0, -0.31741055846214294, -0.08228845149278641, 0.0, 0.0, 0.0];
-
-  const W3 = [[-0.7842451930046082],
-              [-0.36538806557655334],
-              [-0.0392339825630188],
-              [0.9717938899993896],
-              [0.0010807935614138842],
-              [0.7813495397567749],
-              [0.329006552696228],
-              [-0.7708941102027893]];
-  const b3 = [2.8624038696289062];
-
-  // ==============================
-  // 2. Funciones auxiliares
-  // ==============================
-
-  function relu(x) {
-    return Math.max(0, x);
-  }
-
-  function denseLayer(input, weights, bias, useRelu) {
-    const n_out = bias.length;
-    const output = new Array(n_out).fill(0);
-
-    for (let j = 0; j < n_out; j++) {
-      let sum = bias[j];
-      for (let i = 0; i < input.length; i++) {
-        sum += input[i] * weights[i][j];
-      }
-      output[j] = useRelu ? relu(sum) : sum;
-    }
-    return output;
-  }
-
-  // ==============================
-  // 3. Forward pass
-  // ==============================
+  const W = [
+    -0.0020258822478353977,  // peso para year
+     0.029492627829313278,   // peso para neutral
+    -0.06968951970338821,    // peso para is_world_cup
+    -0.04232977703213692     // peso para is_friendly
+  ];
+  const B = 6.623144626617432;
 
   function redNeuronal(year, neutral, is_world_cup, is_friendly) {
-    const x = [year, neutral, is_world_cup, is_friendly];
-
-    const h1 = denseLayer(x, W1, b1, true);     // capa 1 (ReLU)
-    const h2 = denseLayer(h1, W2, b2, true);    // capa 2 (ReLU)
-    const out = denseLayer(h2, W3, b3, false);  // salida (lineal)
-
-    return out[0]; // número de goles
+    // y = B + w0*year + w1*neutral + w2*worldcup + w3*friendly
+    return B
+      + W[0] * year
+      + W[1] * neutral
+      + W[2] * is_world_cup
+      + W[3] * is_friendly;
   }
-
-  // ==============================
-  // 4. Interacción con la página
-  // ==============================
 
   function predecir() {
     const year     = parseFloat(document.getElementById("year").value);
